@@ -14,6 +14,11 @@ Then you should create .icd file in /etc/OpenCL/vendors with path to driver libr
 
 TODO: make it automated and cross-platform.
 
+### CLRX
+1. Install CLRX from https://github.com/CLRX/CLRX-mirror
+2. Set environment variable PKG_CONFIG_PATH to include *.pc files from this installation 
+   (will be found in CLRX `make install` logs)
+
 ### CLion
 
 #### clang-format
