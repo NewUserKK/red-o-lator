@@ -3,8 +3,7 @@ set (EMULATOR_SOURCES
 )
 
 add_executable(emulator ${EMULATOR_SOURCES}
-        instr_set/instruction.cpp
-        instr_set/register.cpp
-        instr_set/register_type.h)
+        instr_set/instruction.h
+        reg/register_type.h)
 
 target_link_libraries(emulator driver)
