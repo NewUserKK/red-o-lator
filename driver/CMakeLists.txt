@@ -1,4 +1,6 @@
 include_directories(CL)
+find_package(OpenCL REQUIRED)
+
 include_directories(src)
 
 set(OCL_RUNTIME_SOURCES
@@ -25,8 +27,11 @@ set(OCL_RUNTIME_SOURCES
         src/common/common.hpp)
 
 set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS 1)
-add_library(driver SHARED ${OCL_RUNTIME_SOURCES})
-target_include_directories(driver PUBLIC src/runtime)
+add_library(red-o-lator-icd SHARED ${OCL_RUNTIME_SOURCES})
+target_link_libraries(red-o-lator-icd INTERFACE OpenCL::OpenCL)
+target_include_directories(red-o-lator-icd PRIVATE src/runtime)
+
+install(TARGETS red-o-lator-icd DESTINATION lib)
 
 add_executable(driver-exec ${OCL_RUNTIME_SOURCES} src/main.cpp)
 
@@ -34,4 +39,4 @@ set(OCL_TEST_SOURCES
         test/driver-call-test.cpp)
 
 add_executable(driver-test ${OCL_TEST_SOURCES})
-target_link_libraries(driver-test PRIVATE driver)
+target_link_libraries(driver-test PRIVATE red-o-lator-icd)
