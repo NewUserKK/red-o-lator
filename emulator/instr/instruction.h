@@ -1,26 +1,582 @@
-/**
- * @author dkudaiberdieva
- */
+//
+// Created by Diana Kudaiberdieva
+//
 
 #include <unordered_map>
-
-using namespace std;
+#include "../reg/register.h"
 
 enum InstructionKey {
 
     // SMEM
     /**
-     * Read 1 dword from scalar data cache. If the offset is specified as an
-     * SGPR, the SGPR contains an UNSIGNED BYTE OFFSET (the 2 LSBs are ignored).
-     * If the offset is specified as an immediate 21-bit constant, the constant
-     * is a SIGNED BYTE offset.
+     * Syntax: S_ATOMIC_ADD SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM + SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_ADD,
+    /**
+     * Syntax: S_ATOMIC_ADD_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM + SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_ADD_X2,
+    /**
+     * Syntax: S_ATOMIC_AND SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM & SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_AND,
+    /**
+     * Syntax: S_ATOMIC_AND_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM & SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_AND_X2,
+    /**
+     *  Syntax: S_ATOMIC_CMPSWAP SDATA(2), SBASE(2), OFFSET
+     *  Operation:
+     *  UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     *  UINT32 P = *VM; *VM = *VM = *VM==(SDATA>>32) ? SDATA&0xffffffff : *VM
+     * //atomic SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_CMPSWAP,
+    /**
+     * Syntax: S_ATOMIC_CMPSWAP_X2 SDATA(4), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM = *VM==(SDATA[2:3]) ? SDATA[0:1] : *VM //
+     * atomic SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_CMPSWAP_X2,
+    /**
+     *  Syntax: S_ATOMIC_DEC SDATA, SBASE(2), OFFSET
+     *  Operation:
+     *  UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     *  UINT32 P = *VM; *VM = (*VM <= VDATA && *VM!=0) ? *VM-1 : VDATA; //
+     * atomic SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_DEC,
+    /**
+     * Syntax: S_ATOMIC_DEC_X2 SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = (*VM <= VDATA && *VM!=0) ? *VM-1 : VDATA; // atomic
+     * SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_DEC_X2,
+    /**
+     * Syntax: S_ATOMIC_INC SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = (*VM < SDATA) ? *VM+1 : 0; SDATA = (GLC) ? P :
+     * SDATA // atomic
+     */
+    S_ATOMIC_INC,
+    /**
+     *  Syntax: S_ATOMIC_INC_X2 SDATA(2), SBASE(2), OFFSET
+     *  Operation:
+     *  UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     *  UINT64 P = *VM; *VM = (*VM < SDATA) ? *VM+1 : 0; SDATA = (GLC) ? P :
+     * SDATA // atomic
+     */
+    S_ATOMIC_INC_X2,
+    /**
+     * Syntax: S_ATOMIC_OR SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM | SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_OR,
+    /**
+     * Syntax: S_ATOMIC_OR_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM | SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_OR_X2,
+    /**
+     * Syntax: S_ATOMIC_SMAX SDATA, SBASE(2), OFFSET
+     * Operation:
+     * INT32* VM = (INT32*)((SMEM + (OFFSET & ~3))
+     * INT32 P = *VM; *VM = MAX(*VM, (INT32)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_ATOMIC_SMAX,
+    /**
+     * Syntax: S_ATOMIC_SMAX_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * INT64* VM = (INT64*)((SMEM + (OFFSET & ~3))
+     * INT64 P = *VM; *VM = MAX(*VM, (INT64)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_ATOMIC_SMAX_X2,
+    /**
+     * Syntax: S_ATOMIC_SMIN SDATA, SBASE(2), OFFSET
+     * Operation:
+     * INT32* VM = (INT32*)((SMEM + (OFFSET & ~3))
+     * INT32 P = *VM; *VM = MIN(*VM, (INT32)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_ATOMIC_SMIN,
+    /**
+     * Syntax: S_ATOMIC_SMIN_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * INT64* VM = (INT64*)((SMEM + (OFFSET & ~3))
+     * INT64 P = *VM; *VM = MIN(*VM, (INT64)SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_ATOMIC_SMIN_X2,
+    /**
+     * Syntax: S_ATOMIC_SUB SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM - SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_SUB,
+    /**
+     * Syntax: S_ATOMIC_SUB_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM - SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_SUB_X2,
+    /**
+     * Syntax: S_ATOMIC_SWAP SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_SWAP,
+    /**
+     * Syntax: S_ATOMIC_SWAP_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_SWAP_X2,
+    /**
+     * Syntax: S_ATOMIC_UMAX SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = MAX(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_ATOMIC_UMAX,
+    /**
+     * Syntax: S_ATOMIC_UMAX_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = MAX(*VM, SDATA); SDATA = (GLC) ? P : SDATA //atomic
+     */
+    S_ATOMIC_UMAX_X2,
+    /**
+     * Syntax: S_ATOMIC_UMIN SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = MIN(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_ATOMIC_UMIN,
+    /**
+     * Syntax: S_ATOMIC_UMIN_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = MIN(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_ATOMIC_UMIN_X2,
+    /**
+     * Syntax: S_ATOMIC_XOR SDATA, SBASE(2), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM ^ SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_XOR,
+    /**
+     * Syntax: S_ATOMIC_XOR_X2 SDATA(2), SBASE(2), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM ^ SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_ATOMIC_XOR_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_ADD SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM + SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_ADD,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_ADD_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM + SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_ADD_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_AND SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM & SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_AND,
+    /**
+     *  Syntax: S_BUFFER_ATOMIC_AND_X2 SDATA(2), SBASE(4), OFFSET
+     *  Operation:
+     *  UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     *  UINT64 P = *VM; *VM = *VM & SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_AND_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_CMPSWAP SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM = *VM==(SDATA>>32) ? SDATA&0xffffffff : *VM
+     * //atomic SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_CMPSWAP,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_CMPSWAP_X2 SDATA(4), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM = *VM==(SDATA[2:3]) ? SDATA[0:1] : *VM //
+     * atomic SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_CMPSWAP_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_DEC SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = (*VM <= VDATA && *VM!=0) ? *VM-1 : VDATA; // atomic
+     * SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_DEC,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_DEC_X2 SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = (*VM <= VDATA && *VM!=0) ? *VM-1 : VDATA; // atomic
+     * SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_DEC_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_INC SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = (*VM < SDATA) ? *VM+1 : 0; SDATA = (GLC) ? P :
+     * SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_INC,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_INC_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = (*VM < SDATA) ? *VM+1 : 0; SDATA = (GLC) ? P :
+     * SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_INC_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_OR SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM | SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_OR,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_OR_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM | SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_OR_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SMAX SDATA, SBASE(4), OFFSET
+     * Operation:
+     * INT32* VM = (INT32*)((SMEM + (OFFSET & ~3))
+     * INT32 P = *VM; *VM = MAX(*VM, (INT32)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_BUFFER_ATOMIC_SMAX,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SMAX_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * INT64* VM = (INT64*)((SMEM + (OFFSET & ~3))
+     * INT64 P = *VM; *VM = MAX(*VM, (INT64)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_BUFFER_ATOMIC_SMAX_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SMIN SDATA, SBASE(4), OFFSET
+     * Operation:
+     * INT32* VM = (INT32*)((SMEM + (OFFSET & ~3))
+     * INT32 P = *VM; *VM = MIN(*VM, (INT32)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_BUFFER_ATOMIC_SMIN,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SMIN_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * INT64* VM = (INT64*)((SMEM + (OFFSET & ~3))
+     * INT64 P = *VM; *VM = MIN(*VM, (INT64)SDATA); SDATA = (GLC) ? P : SDATA
+     * //atomic
+     */
+    S_BUFFER_ATOMIC_SMIN_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SUB SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM - SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_SUB,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SUB_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM - SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_SUB_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SWAP SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_SWAP,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_SWAP_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_SWAP_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_UMAX SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = MAX(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_BUFFER_ATOMIC_UMAX,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_UMAX_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = MAX(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_BUFFER_ATOMIC_UMAX_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_UMIN SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = MIN(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_BUFFER_ATOMIC_UMIN,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_UMIN_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = MIN(*VM, SDATA); SDATA = (GLC) ? P : SDATA //
+     * atomic
+     */
+    S_BUFFER_ATOMIC_UMIN_X2,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_XOR SDATA, SBASE(4), OFFSET
+     * Operation:
+     * UINT32* VM = (UINT32*)((SMEM + (OFFSET & ~3))
+     * UINT32 P = *VM; *VM = *VM ^ SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_XOR,
+    /**
+     * Syntax: S_BUFFER_ATOMIC_XOR_X2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * UINT64* VM = (UINT64*)((SMEM + (OFFSET & ~3))
+     * UINT64 P = *VM; *VM = *VM ^ SDATA; SDATA = (GLC) ? P : SDATA // atomic
+     */
+    S_BUFFER_ATOMIC_XOR_X2,
+    /**
+     * Syntax: S_BUFFER_LOAD_DWORD SDATA, SBASE(4), OFFSET
+     * Operation:
+     * SDATA = *(UINT32*)(SMEM + (OFFSET & ~3))
+     */
+    S_BUFFER_LOAD_DWORD,
+    /**
+     * Syntax: S_BUFFER_LOAD_DWORDX16 SDATA(16), SBASE(4), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 16; i++)
+     * SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3))
+     */
+    S_BUFFER_LOAD_DWORDX16,
+    /**
+     * Syntax: S_BUFFER_LOAD_DWORDX2 SDATA(2), SBASE(4), OFFSET
+     * Operation:
+     * SDATA = *(UINT64*)(SMEM + (OFFSET & ~3))
+     */
+    S_BUFFER_LOAD_DWORDX2,
+    /**
+     * Syntax: S_BUFFER_LOAD_DWORDX4 SDATA(4), SBASE(4), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 4; i++)
+     * SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3))
+     */
+    S_BUFFER_LOAD_DWORDX4,
+    /**
+     * Syntax: S_BUFFER_LOAD_DWORDX8 SDATA(8), SBASE(4), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 8; i++)
+     * SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3))
+     */
+    S_BUFFER_LOAD_DWORDX8,
+    /**
+     * Syntax: S_BUFFER_STORE_DWORD SDATA, SBASE(4), OFFSET
+     * Operation:
+     * *(UINT32*)(SMEM + (OFFSET & ~3)) = SDATA
+     */
+    S_BUFFER_STORE_DWORD,
+    /**
+     *  Syntax: S_BUFFER_STORE_DWORDX2 SDATA(2), SBASE(4), OFFSET
+     *  Operation:
+     *  *(UINT64*)(SMEM + (OFFSET & ~3)) = SDATA
+     */
+    S_BUFFER_STORE_DWORDX2,
+    /**
+     * Syntax: S_BUFFER_STORE_DWORDX4 SDATA(4), SBASE(4), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 4; i++)
+     * *(UINT32*)(SMEM + i*4 + (OFFSET & ~3)) = SDATA[i]
+     */
+    S_BUFFER_STORE_DWORDX4,
+    /**
+     * Syntax: S_DCACHE_DISCARD SBASE(2), SOFFSET1
+     * Description: Discard one dirty scalar data cache line. A cache line is 64
+     * bytes. Address calculated as S_STORE_DWORD with alignment to 64-byte
+     * boundary. LGKM count is incremented by 1 for this opcode.
+     */
+    S_DCACHE_DISCARD,
+    /**
+     * Syntax: S_DCACHE_DISCARD_X2 SBASE(2), SOFFSET1
+     * Description: Discard two dirty scalar data cache lines. A cache line is
+     * 64 bytes. Address calculated as S_STORE_DWORD with alignment to 64-byte
+     * boundary. LGKM count is incremented by 1 for this opcode.
+     */
+    S_DCACHE_DISCARD_X2,
+    /**
+     * Syntax: S_DCACHE_INV
+     * Description: Invalidate entire L1 K cache.
+     */
+    S_DCACHE_INV,
+    /**
+     * Syntax: S_DCACHE_INV_VOL
+     * Description: Invalidate all volatile lines in L1 K cache.
+     */
+    S_DCACHE_INV_VOL,
+    /**
+     * Syntax: S_LOAD_DWORD SDATA, SBASE(2), OFFSET
+     * Operation:
+     * SDATA = *(UINT32*)(SMEM + (OFFSET & ~3))
      */
     S_LOAD_DWORD,
     /**
-     * Read 2 dwords from scalar data cache. See S_LOAD_DWORD for details on the
-     * offset input
+     * Syntax: S_LOAD_DWORDX16 SDATA(16), SBASE(2), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 16; i++)
+     * SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3))
+     */
+    S_LOAD_DWORDX16,
+    /**
+     *  Syntax: S_LOAD_DWORDX2 SDATA(2), SBASE(2), OFFSET
+     *  SDATA = *(UINT64*)(SMEM + (OFFSET & ~3))
      */
     S_LOAD_DWORDX2,
+    /**
+     * Syntax: S_LOAD_DWORDX4 SDATA(4), SBASE(2), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 4; i++)
+     *      SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3))
+     */
+    S_LOAD_DWORDX4,
+    /**
+     * Syntax: S_LOAD_DWORDX8 SDATA(8), SBASE(2), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 8; i++)
+     *      SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3))
+     */
+    S_LOAD_DWORDX8,
+    /**
+     * Syntax: S_MEMREALTIME SDATA(2)
+     * Operation:
+     * SDATA = CLOCKCNT
+     */
+    S_MEMREALTIME,
+    /**
+     * Syntax: S_MEMTIME SDATA(2)
+     * Operation:
+     * SDATA = CLOCKCNT
+     */
+    S_MEMTIME,
+    /**
+     * Syntax: S_SCRATCH_LOAD_DWORD SDATA, SBASE(2), SGPROFFSET OFFSET:OFFSET
+     * Operation:
+     * SDATA = *(UINT32*)(SMEM + (OFFSET & ~3) + (SGPROFFSET & ~3)*64)
+     */
+    S_SCRATCH_LOAD_DWORD,
+    /**
+     * Syntax: S_SCRATCH_LOAD_DWORDX2 SDATA, SBASE(2), SGPROFFSET OFFSET:OFFSET
+     * Operation:
+     * SDATA = *(UINT64*)(SMEM + (OFFSET & ~3) + (SGPROFFSET & ~3)*64)
+     */
+    S_SCRATCH_LOAD_DWORDX2,
+    /**
+     * Syntax: S_SCRATCH_LOAD_DWORDX4 SDATA, SBASE(2), SGPROFFSET OFFSET:OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 4; i++)
+     * SDATA[i] = *(UINT32*)(SMEM + i*4 + (OFFSET & ~3) + (SGPROFFSET & ~3)*64)
+     */
+    S_SCRATCH_LOAD_DWORDX4,
+    /**
+     * Syntax: S_SCRATCH_STORE_DWORD SDATA, SBASE(2), SGPROFFSET OFFSET:OFFSET
+     * Operation:
+     * *(UINT32*)(SMEM + (OFFSET & ~3) + (SGPROFFSET & ~3)*64) = SDATA
+     */
+    S_SCRATCH_STORE_DWORD,
+    /**
+     * Syntax: S_SCRATCH_STORE_DWORDX2 SDATA(2), SBASE(2), SGPROFFSET
+     * OFFSET:OFFSET Operation:
+     * *(UINT64*)(SMEM + (OFFSET & ~3) + (SGPROFFSET & ~3)*64) = SDATA
+     */
+    S_SCRATCH_STORE_DWORDX2,
+    /**
+     * Syntax: S_SCRATCH_STORE_DWORDX4 SDATA(4), SBASE(2), SGPROFFSET
+     * OFFSET:OFFSET Operation: for (BYTE i = 0; i < 4; i++)
+     * *(UINT32*)(SMEM + i*4 + (OFFSET & ~3) + (SGPROFFSET & ~3)*64) = SDATA[i]
+     */
+    S_SCRATCH_STORE_DWORDX4,
+    /**
+     * Syntax: S_STORE_DWORD SDATA, SBASE(2), OFFSET
+     * Operation:
+     * *(UINT32*)(SMEM + (OFFSET & ~3)) = SDATA
+     */
+    S_STORE_DWORD,
+    /**
+     *  Syntax: S_STORE_DWORDX2 SDATA(2), SBASE(2), OFFSET
+     *  Operation:
+     *  *(UINT64*)(SMEM + (OFFSET & ~3)) = SDATA
+     */
+    S_STORE_DWORDX2,
+
+    /**
+     * Syntax: S_STORE_DWORDX4 SDATA(4), SBASE(2), OFFSET
+     * Operation:
+     * for (BYTE i = 0; i < 4; i++)
+     * *(UINT32*)(SMEM + i*4 + (OFFSET & ~3)) = SDATA[i]
+     */
+    S_STORE_DWORDX4,
+    // END SMEM
 
     // SOPC
     /**
@@ -173,12 +729,14 @@ enum InstructionKey {
     S_CBRANCH_CDBGSYS,
     /**
      *  Syntax: S_CBRANCH_CDBGSYS_AND_USER RELADDR
-     *  Description: Jump to address RELADDR if COND_DBG_SYS and COND_DBG_USER status bit is set.
+     *  Description: Jump to address RELADDR if COND_DBG_SYS and COND_DBG_USER
+     * status bit is set.
      */
     S_CBRANCH_CDBGSYS_AND_USER,
     /**
      * Syntax: S_CBRANCH_CDBGSYS_OR_USER RELADDR
-     * Description: Jump to address RELADDR if COND_DBG_SYS or COND_DBG_USER status bit is set.
+     * Description: Jump to address RELADDR if COND_DBG_SYS or COND_DBG_USER
+     * status bit is set.
      */
     S_CBRANCH_CDBGSYS_OR_USER,
     /**
@@ -204,16 +762,14 @@ enum InstructionKey {
     S_CBRANCH_EXECZ,
     /**
      * Syntax: S_CBRANCH_SCC0 RELADDR
-     * Description: If SCC is zero then jump to RELADDR, otherwise jump to next instruction.
-     * Operation:
-     * PC = SCC0==0 ? RELADDR : PC+4
+     * Description: If SCC is zero then jump to RELADDR, otherwise jump to next
+     * instruction. Operation: PC = SCC0==0 ? RELADDR : PC+4
      */
     S_CBRANCH_SCC0,
     /**
      * Syntax: S_CBRANCH_SCC1 RELADDR
-     * Description: If SCC is one then jump to RELADDR, otherwise jump to next instruction.
-     * Operation:
-     * PC = SCC0==1 ? RELADDR : PC+4
+     * Description: If SCC is one then jump to RELADDR, otherwise jump to next
+     * instruction. Operation: PC = SCC0==1 ? RELADDR : PC+4
      */
     S_CBRANCH_SCC1,
     /**
@@ -278,15 +834,15 @@ enum InstructionKey {
     /**
      * Syntax: S_SENDMSG SENDMSG(MSG, GS_OP, STREAMID)
      * Description: Send message. List of messages:
-     *      INTERRUPT, MSG_INTERRUPT - interrupt. M0&0xff - carries user data, IDs also sent (wave_id, cu_id, ...)
-     *      GS, MSG_GS
-     *      GS_DONE, MSG_GS_DONE
+     *      INTERRUPT, MSG_INTERRUPT - interrupt. M0&0xff - carries user data,
+     * IDs also sent (wave_id, cu_id, ...) GS, MSG_GS GS_DONE, MSG_GS_DONE
      *      SYSMSG, MSG_SYSMSG, SYSTEM, MSG_SYSTEM
      * List of the GSOP's:
      *      NOP, GS_NOP - M0&0xff defines wave id. only GS_DONE
-     *      CUT, GS_CUT - (SIMM16 & 0x300)>>8 - streamid, EXEC also sent, M0&0xff - gs waveID
-     *      EMIT, GS_EMIT - (SIMM16 & 0x300)>>8 - streamid, EXEC also sent, M0&0xff - gs waveID
-     *      EMIT_CUT, GS_EMIT_CUT, EMIT-CUT - (SIMM16 & 0x300)>>8 - streamid, EXEC also sent, M0&0xff - gs waveID
+     *      CUT, GS_CUT - (SIMM16 & 0x300)>>8 - streamid, EXEC also sent,
+     * M0&0xff - gs waveID EMIT, GS_EMIT - (SIMM16 & 0x300)>>8 - streamid, EXEC
+     * also sent, M0&0xff - gs waveID EMIT_CUT, GS_EMIT_CUT, EMIT-CUT - (SIMM16
+     * & 0x300)>>8 - streamid, EXEC also sent, M0&0xff - gs waveID
      */
     S_SENDMSG,
     /**
@@ -354,7 +910,6 @@ enum InstructionKey {
     S_WAITCNT,
     // END SOPP
 
-
     // SOP1
     /**
      * Syntax: S_ABS_B32 SDST, SSRC0
@@ -365,11 +920,10 @@ enum InstructionKey {
     S_ABS_I32,
     /**
      * Syntax: S_AND_SAVEEXEC_B64 SDST(2), SSRC0(2)
-    Operation:
-    SDST = EXEC
-    EXEC = SSRC0 & EXEC
-    SCC = EXEC!=0
-
+     * Operation:
+     * SDST = EXEC
+     * EXEC = SSRC0 & EXEC
+     * SCC = EXEC!=0
      */
     S_AND_SAVEEXEC_B64,
     /**
@@ -437,7 +991,7 @@ enum InstructionKey {
      * Operation:
      * SDST = 0
      * for (BYTE I=0; I<32; I++)
-     * SDST |= (((SSRC0>>I)&1)*3)<<(I<<1)
+     *      SDST |= (((SSRC0>>I)&1)*3)<<(I<<1)
      */
     S_BITREPLICATE_B64_B32,
     /**
@@ -505,8 +1059,8 @@ enum InstructionKey {
      * Operation:
      * SDST = -1
      * for (UINT8 i = 0; i < 32; i++)
-     * if ((1U<<i) & SSRC0) == 0)
-     * { SDST = i; break; }
+     *      if ((1U<<i) & SSRC0) == 0)
+     *       { SDST = i; break; }
      */
     S_FF0_I32_B32,
     /**
@@ -566,13 +1120,12 @@ enum InstructionKey {
     S_FLBIT_I32,
     /**
      * Syntax: S_FLBIT_I32_I64 SDST, SSRC0(2)
-    Operation:
-    SDST = -1
-    UINT64 bitval = (INT64)SSRC0>=0 ? 1 : 0
-    for (INT8 i = 63; i >= 0; i--)
-    if ((1U<<i) & SSRC0) == (bitval<<i))
-    { SDST = 63-i; break; }
-
+     * Operation:
+     * SDST = -1
+     * UINT64 bitval = (INT64)SSRC0>=0 ? 1 : 0
+     * for (INT8 i = 63; i >= 0; i--)
+     * if ((1U<<i) & SSRC0) == (bitval<<i))
+     * { SDST = 63-i; break; }
      */
     S_FLBIT_I32_I64,
     /**
@@ -668,7 +1221,7 @@ enum InstructionKey {
      * Operation:
      * UINT32 temp = 0
      * for (UINT8 i = 0; i < 8; i++)
-     * temp |= ((SSRC0>>(i<<2)) & 15)!=0 ? (1U<<i) : 0
+     *      temp |= ((SSRC0>>(i<<2)) & 15)!=0 ? (1U<<i) : 0
      * SDST = temp
      * SCC = SDST!=0
      */
@@ -725,7 +1278,7 @@ enum InstructionKey {
      * Operation:
      * UINT32 temp = 0
      * for (UINT8 i = 0; i < 32; i+=4)
-     * temp |= ((SSRC0>>i) & 15)!=0 ? (15<<i) : 0
+     *      temp |= ((SSRC0>>i) & 15)!=0 ? (15<<i) : 0
      * SDST = temp
      * SCC = SDST!=0
      */
@@ -1297,223 +1850,10 @@ struct InstructionInfo {
     }
 };
 
-InstructionInfo get_instruction_info(InstructionKey instruction) {
-    static std::unordered_map<InstructionKey, InstructionInfo> instruction_repo{
-        // SOP1
-        {S_ABS_I32, {S_ABS_I32, "s_abs_i32"}},
-        {S_AND_SAVEEXEC_B64, {S_AND_SAVEEXEC_B64, "s_and_saveexec_b64"}},
-        {S_ANDN1_SAVEEXEC_B64, {S_ANDN1_SAVEEXEC_B64, "s_andn1_saveexec_b64"}},
-        {S_ANDN1_WREXEC_B64, {S_ANDN1_WREXEC_B64, "s_andn1_wrexec_b64"}},
-        {S_ANDN2_SAVEEXEC_B64, {S_ANDN2_SAVEEXEC_B64, "s_andn2_saveexec_b64"}},
-        {S_ANDN2_WREXEC_B64, {S_ANDN2_WREXEC_B64, "s_andn2_wrexec_b64"}},
-        {S_BCNT0_I32_B32, {S_BCNT0_I32_B32, "s_bcnt0_i32_b32"}},
-        {S_BCNT0_I32_B64, {S_BCNT0_I32_B64, "s_bcnt0_i32_b64"}},
-        {S_BCNT1_I32_B32, {S_BCNT1_I32_B32, "s_bcnt1_i32_b32"}},
-        {S_BCNT1_I32_B64, {S_BCNT1_I32_B64, "s_bcnt1_i32_b64"}},
-        {S_BITREPLICATE_B64_B32,
-         {S_BITREPLICATE_B64_B32, "s_bitreplicate_b64_b32"}},
-        {S_BITSET0_B32, {S_BITSET0_B32, "s_bitset0_b32"}},
-        {S_BITSET0_B64, {S_BITSET0_B64, "s_bitset0_b64"}},
-        {S_BITSET1_B32, {S_BITSET1_B32, "s_bitset1_b32"}},
-        {S_BITSET1_B64, {S_BITSET1_B64, "s_bitset1_b64"}},
-        {S_BREV_B32, {S_BREV_B32, "s_brev_b32"}},
-        {S_BREV_B64, {S_BREV_B64, "s_brev_b64"}},
-        {S_CBRANCH_JOIN, {S_CBRANCH_JOIN, "s_cbranch_join"}},
-        {S_CMOV_B32, {S_CMOV_B32, "s_cmov_b32"}},
-        {S_CMOV_B64, {S_CMOV_B64, "s_cmov_b64"}},
-        {S_FF0_I32_B32, {S_FF0_I32_B32, "s_ff0_i32_b32"}},
-        {S_FF0_I32_B64, {S_FF0_I32_B64, "s_ff0_i32_b64"}},
-        {S_FF1_I32_B32, {S_FF1_I32_B32, "s_ff1_i32_b32"}},
-        {S_FF1_I32_B64, {S_FF1_I32_B64, "s_ff1_i32_b64"}},
-        {S_FLBIT_I32_B32, {S_FLBIT_I32_B32, "s_flbit_i32_b32"}},
-        {S_FLBIT_I32_B64, {S_FLBIT_I32_B64, "s_flbit_i32_b64"}},
-        {S_FLBIT_I32, {S_FLBIT_I32, "s_flbit_i32"}},
-        {S_FLBIT_I32_I64, {S_FLBIT_I32_I64, "s_flbit_i32_i64"}},
-        {S_GETPC_B64, {S_GETPC_B64, "s_getpc_b64"}},
-        {S_MOV_B32, {S_MOV_B32, "s_mov_b32"}},
-        {S_MOV_B64, {S_MOV_B64, "s_mov_b64"}},
-        {S_MOVRELD_B32, {S_MOVRELD_B32, "s_movreld_b32"}},
-        {S_MOVRELD_B64, {S_MOVRELD_B64, "s_movreld_b64"}},
-        {S_MOVRELS_B32, {S_MOVRELS_B32, "s_movrels_b32"}},
-        {S_MOVRELS_B64, {S_MOVRELS_B64, "s_movrels_b64"}},
-        {S_NAND_SAVEEXEC_B64, {S_NAND_SAVEEXEC_B64, "s_nand_saveexec_b64"}},
-        {S_NOR_SAVEEXEC_B64, {S_NOR_SAVEEXEC_B64, "s_nor_saveexec_b64"}},
-        {S_NOT_B32, {S_NOT_B32, "s_not_b32"}},
-        {S_NOT_B64, {S_NOT_B64, "s_not_b64"}},
-        {S_OR_SAVEEXEC_B64, {S_OR_SAVEEXEC_B64, "s_or_saveexec_b64"}},
-        {S_ORN2_SAVEEXEC_B64, {S_ORN2_SAVEEXEC_B64, "s_orn2_saveexec_b64"}},
-        {S_QUADMASK_B32, {S_QUADMASK_B32, "s_quadmask_b32"}},
-        {S_QUADMASK_B64, {S_QUADMASK_B64, "s_quadmask_b64"}},
-        {S_RFE_B64, {S_RFE_B64, "s_rfe_b64"}},
-        {S_SET_GPR_IDX_IDX, {S_SET_GPR_IDX_IDX, "s_set_gpr_idx_idx"}},
-        {S_SETPC_B64, {S_SETPC_B64, "s_setpc_b64"}},
-        {S_SEXT_I32_I8, {S_SEXT_I32_I8, "s_sext_i32_i8"}},
-        {S_SEXT_I32_I16, {S_SEXT_I32_I16, "s_sext_i32_i16"}},
-        {S_SWAPPC_B64, {S_SWAPPC_B64, "s_swappc_b64"}},
-        {S_WQM_B32, {S_WQM_B32, "s_wqm_b32"}},
-        {S_WQM_B64, {S_WQM_B64, "s_wqm_b64"}},
-        {S_XNOR_SAVEEXEC_B64, {S_XNOR_SAVEEXEC_B64, "s_xnor_saveexec_b64"}},
-        {S_XOR_SAVEEXEC_B64, {S_XOR_SAVEEXEC_B64, "s_xor_saveexec_b64"}},
-
-        // SOP2
-        {S_ABSDIFF_I32, {S_ABSDIFF_I32, "s_absdiff_i32"}},
-        {S_ADDC_U32, {S_ADDC_U32, "s_addc_u32"}},
-        {S_ADD_I32, {S_ADD_I32, "s_add_i32"}},
-        {S_ADD_U32, {S_ADD_U32, "s_add_u32"}},
-        {S_AND_B32, {S_AND_B32, "s_and_b32"}},
-        {S_AND_B64, {S_AND_B64, "s_and_b64"}},
-        {S_ANDN2_B32, {S_ANDN2_B32, "s_andn2_b32"}},
-        {S_ANDN2_B64, {S_ANDN2_B64, "s_andn2_b64"}},
-        {S_ASHR_I32, {S_ASHR_I32, "s_ashr_i32"}},
-        {S_ASHR_I64, {S_ASHR_I64, "s_ashr_i64"}},
-        {S_BFE_I32, {S_BFE_I32, "s_bfe_i32"}},
-        {S_BFE_I64, {S_BFE_I64, "s_bfe_i64"}},
-        {S_BFE_U32, {S_BFE_U32, "s_bfe_u32"}},
-        {S_BFE_U64, {S_BFE_U64, "s_bfe_u64"}},
-        {S_BFM_B32, {S_BFM_B32, "s_bfm_b32"}},
-        {S_BFM_B64, {S_BFM_B64, "s_bfm_b64"}},
-        {S_CBRANCH_G_FORK, {S_CBRANCH_G_FORK, "s_cbranch_g_fork"}},
-        {S_CSELECT_B32, {S_CSELECT_B32, "s_cselect_b32"}},
-        {S_CSELECT_B64, {S_CSELECT_B64, "s_cselect_b64"}},
-        {S_LSHL_B32, {S_LSHL_B32, "s_lshl_b32"}},
-        {S_LSHL_B64, {S_LSHL_B64, "s_lshl_b64"}},
-        {S_LSHL1_ADD_U32, {S_LSHL1_ADD_U32, "s_lshl1_add_u32"}},
-        {S_LSHL2_ADD_U32, {S_LSHL2_ADD_U32, "s_lshl2_add_u32"}},
-        {S_LSHL3_ADD_U32, {S_LSHL3_ADD_U32, "s_lshl3_add_u32"}},
-        {S_LSHL4_ADD_U32, {S_LSHL4_ADD_U32, "s_lshl4_add_u32"}},
-        {S_LSHR_B32, {S_LSHR_B32, "s_lshr_b32"}},
-        {S_LSHR_B64, {S_LSHR_B64, "s_lshr_b64"}},
-        {S_MAX_I32, {S_MAX_I32, "s_max_i32"}},
-        {S_MAX_U32, {S_MAX_U32, "s_max_u32"}},
-        {S_MIN_I32, {S_MIN_I32, "s_min_i32"}},
-        {S_MIN_U32, {S_MIN_U32, "s_min_u32"}},
-        {S_MUL_HI_I32, {S_MUL_HI_I32, "s_mul_hi_i32"}},
-        {S_MUL_HI_U32, {S_MUL_HI_U32, "s_mul_hi_u32"}},
-        {S_MUL_I32, {S_MUL_I32, "s_mul_i32"}},
-        {S_NAND_B32, {S_NAND_B32, "s_nand_b32"}},
-        {S_NAND_B64, {S_NAND_B64, "s_nand_b64"}},
-        {S_NOR_B32, {S_NOR_B32, "s_nor_b32"}},
-        {S_NOR_B64, {S_NOR_B64, "s_nor_b64"}},
-        {S_OR_B32, {S_OR_B32, "s_or_b32"}},
-        {S_OR_B64, {S_OR_B64, "s_or_b64"}},
-        {S_ORN2_B32, {S_ORN2_B32, "s_orn2_b32"}},
-        {S_ORN2_B64, {S_ORN2_B64, "s_orn2_b64"}},
-        {S_PACK_HH_B32_B16, {S_PACK_HH_B32_B16, "s_pack_hh_b32_b16"}},
-        {S_PACK_LH_B32_B16, {S_PACK_LH_B32_B16, "s_pack_lh_b32_b16"}},
-        {S_PACK_LL_B32_B16, {S_PACK_LL_B32_B16, "s_pack_ll_b32_b16"}},
-        {S_RFE_RESTORE_B64, {S_RFE_RESTORE_B64, "s_rfe_restore_b64"}},
-        {S_SUBB_U32, {S_SUBB_U32, "s_subb_u32"}},
-        {S_SUB_I32, {S_SUB_I32, "s_sub_i32"}},
-        {S_SUB_U32, {S_SUB_U32, "s_sub_u32"}},
-        {S_XNOR_B32, {S_XNOR_B32, "s_xnor_b32"}},
-        {S_XNOR_B64, {S_XNOR_B64, "s_xnor_b64"}},
-        {S_XOR_B32, {S_XOR_B32, "s_xor_b32"}},
-        {S_XOR_B64, {S_XOR_B64, "s_xor_b64"}},
-
-        // SOPK
-        {S_ADDK_I32, {S_ADDK_I32, "s_addk_i32"}},
-        {S_CALL_B64, {S_CALL_B64, "s_call_b64"}},
-        {S_CBRANCH_I_FORK, {S_CBRANCH_I_FORK, "s_cbranch_i_fork"}},
-        {S_CMOVK_I32, {S_CMOVK_I32, "s_cmovk_i32"}},
-        {S_CMPK_EQ_I32, {S_CMPK_EQ_I32, "s_cmpk_eq_i32"}},
-        {S_CMPK_EQ_U32, {S_CMPK_EQ_U32, "s_cmpk_eq_u32"}},
-        {S_CMPK_GE_I32, {S_CMPK_GE_I32, "s_cmpk_ge_i32"}},
-        {S_CMPK_GE_U32, {S_CMPK_GE_U32, "s_cmpk_ge_u32"}},
-        {S_CMPK_GT_I32, {S_CMPK_GT_I32, "s_cmpk_gt_i32"}},
-        {S_CMPK_GT_U32, {S_CMPK_GT_U32, "s_cmpk_gt_u32"}},
-        {S_CMPK_LE_I32, {S_CMPK_LE_I32, "s_cmpk_le_i32"}},
-        {S_CMPK_LE_U32, {S_CMPK_LE_U32, "s_cmpk_le_u32"}},
-        {S_CMPK_LG_I32, {S_CMPK_LG_I32, "s_cmpk_lg_i32"}},
-        {S_CMPK_LG_U32, {S_CMPK_LG_U32, "s_cmpk_lg_u32"}},
-        {S_CMPK_LT_I32, {S_CMPK_LT_I32, "s_cmpk_lt_i32"}},
-        {S_CMPK_LT_U32, {S_CMPK_LT_U32, "s_cmpk_lt_u32"}},
-        {S_GETREG_B32, {S_GETREG_B32, "s_getreg_b32"}},
-        {S_GETREG_REGRD_B32, {S_GETREG_REGRD_B32, "s_getreg_regrd_b32"}},
-        {S_MOVK_I32, {S_MOVK_I32, "s_movk_i32"}},
-        {S_MULK_I32, {S_MULK_I32, "s_mulk_i32"}},
-        {S_SETREG_B32, {S_SETREG_B32, "s_setreg_b32"}},
-        {S_SETREG_IMM32_B32, {S_SETREG_IMM32_B32, "s_setreg_imm32_b32"}},
-
-        // SMEM
-        {S_LOAD_DWORD, {S_LOAD_DWORD, "s_load_dword"}},
-        {S_LOAD_DWORDX2, {S_LOAD_DWORDX2, "s_load_dwordx2"}},
-
-        // SOPC
-        {S_BITCMP0_B32, {S_BITCMP0_B32, "s_bitcmp0_b32"}},
-        {S_BITCMP0_B64, {S_BITCMP0_B64, "s_bitcmp0_b64"}},
-        {S_BITCMP1_B32, {S_BITCMP1_B32, "s_bitcmp1_b32"}},
-        {S_BITCMP1_B64, {S_BITCMP1_B64, "s_bitcmp1_b64"}},
-        {S_CMP_EQ_I32, {S_CMP_EQ_I32, "s_cmp_eq_i32"}},
-        {S_CMP_EQ_U32, {S_CMP_EQ_U32, "s_cmp_eq_u32"}},
-        {S_CMP_EQ_U64, {S_CMP_EQ_U64, "s_cmp_eq_u64"}},
-        {S_CMP_GE_I32, {S_CMP_GE_I32, "s_cmp_ge_i32"}},
-        {S_CMP_GE_U32, {S_CMP_GE_U32, "s_cmp_ge_u32"}},
-        {S_CMP_GT_I32, {S_CMP_GT_I32, "s_cmp_gt_i32"}},
-        {S_CMP_GT_U32, {S_CMP_GT_U32, "s_cmp_gt_u32"}},
-        {S_CMP_LE_I32, {S_CMP_LE_I32, "s_cmp_le_i32"}},
-        {S_CMP_LE_U32, {S_CMP_LE_U32, "s_cmp_le_u32"}},
-        {S_CMP_LG_I32, {S_CMP_LG_I32, "s_cmp_lg_i32"}},
-        {S_CMP_LG_U32, {S_CMP_LG_U32, "s_cmp_lg_u32"}},
-        {S_CMP_LG_U64, {S_CMP_LG_U64, "s_cmp_lg_u64"}},
-        {S_CMP_NE_U64, {S_CMP_NE_U64, "s_cmp_ne_u64"}},
-        {S_CMP_LT_I32, {S_CMP_LT_I32, "s_cmp_lt_i32"}},
-        {S_CMP_LT_U32, {S_CMP_LT_U32, "s_cmp_lt_u32"}},
-        {S_SET_GPR_IDX_ON, {S_SET_GPR_IDX_ON, "s_set_gpr_idx_on"}},
-        {S_SETVSKIP, {S_SETVSKIP, "s_setvskip"}},
-
-        // SOPP
-        {S_BARRIER, {S_BARRIER, "s_barrier"}},
-        {S_BRANCH, {S_BRANCH, "s_branch"}},
-        {S_CBRANCH_CDBGSYS, {S_CBRANCH_CDBGSYS, "s_cbranch_cdbgsys"}},
-        {S_CBRANCH_CDBGSYS_AND_USER, {S_CBRANCH_CDBGSYS_AND_USER, "s_cbranch_cdbgsys_and_user"}},
-        {S_CBRANCH_CDBGSYS_OR_USER, {S_CBRANCH_CDBGSYS_OR_USER, "s_cbranch_cdbgsys_or_user"}},
-        {S_CBRANCH_CDBGUSER, {S_CBRANCH_CDBGUSER, "s_cbranch_cdbguser"}},
-        {S_CBRANCH_EXECNZ, {S_CBRANCH_EXECNZ, "s_cbranch_execnz"}},
-        {S_CBRANCH_EXECZ, {S_CBRANCH_EXECZ, "s_cbranch_execz"}},
-        {S_CBRANCH_SCC0, {S_CBRANCH_SCC0, "s_cbranch_scc0"}},
-        {S_CBRANCH_SCC1, {S_CBRANCH_SCC1, "s_cbranch_scc1"}},
-        {S_CBRANCH_VCCNZ, {S_CBRANCH_VCCNZ, "s_cbranch_vccnz"}},
-        {S_CBRANCH_VCCZ, {S_CBRANCH_VCCZ, "s_cbranch_vccz"}},
-        {S_DECPERFLEVEL, {S_DECPERFLEVEL, "s_decperflevel"}},
-        {S_ENDPGM, {S_ENDPGM, "s_endpgm"}},
-        {S_ENDPGM_ORDERED_PS_DONE, {S_ENDPGM_ORDERED_PS_DONE, "s_endpgm_ordered_ps_done"}},
-        {S_ENDPGM_SAVED, {S_ENDPGM_SAVED, "s_endpgm_saved"}},
-        {S_ICACHE_INV, {S_ICACHE_INV, "s_icache_inv"}},
-        {S_INCPERFLEVEL, {S_INCPERFLEVEL, "s_incperflevel"}},
-        {S_NOP, {S_NOP, "s_nop"}},
-        {S_SENDMSG, {S_SENDMSG, "s_sendmsg"}},
-        {S_SENDMSGHALT, {S_SENDMSGHALT, "s_sendmsghalt"}},
-        {S_SET_GPR_IDX_MODE, {S_SET_GPR_IDX_MODE, "s_set_gpr_idx_mode"}},
-        {S_SET_GPR_IDX_OFF, {S_SET_GPR_IDX_OFF, "s_set_gpr_idx_off"}},
-        {S_SETHALT, {S_SETHALT, "s_sethalt"}},
-        {S_SETKILL, {S_SETKILL, "s_setkill"}},
-        {S_SETPRIO, {S_SETPRIO, "s_setprio"}},
-        {S_SLEEP, {S_SLEEP, "s_sleep"}},
-        {S_TRAP, {S_TRAP, "s_trap"}},
-        {S_TTRACEDATA, {S_TTRACEDATA, "s_ttracedata"}},
-        {S_WAITCNT, {S_WAITCNT, "s_waitcnt"}},
-
-        // VOP1
-        {V_MOV_B32, {V_MOV_B32, "v_mov_b32"}},
-
-        // VOP2
-        {V_ADD_U32, {V_ADD_U32, "v_add_u32"}},
-        {V_ADDC_U32, {V_ADDC_U32, "v_addc_u32"}},
-
-        // VOP3A
-        {V_LSHLREV_B64, {V_LSHLREV_B64, "v_lshlrev_b64"}},
-
-        // VOPC
-        {V_CMP_EQ_I32, {V_CMP_EQ_I32, "v_cmp_eq_i32"}},
-
-        // FLAT
-        {FLAT_STORE_DWORD, {FLAT_STORE_DWORD, "flat_store_dword"}}};
-
-    auto it = instruction_repo.find(instruction);
-
-    if (it == instruction_repo.end()) {
-        throw std::runtime_error("Undefined instruction!");
-    }
-
-    return it->second;
-}
+struct InstrStateSOP1 {
+    uint64_t SDST;
+    uint64_t SSRC0;
+    uint64_t EXEC;
+    uint32_t M0;
+    bool SCC;
+};
