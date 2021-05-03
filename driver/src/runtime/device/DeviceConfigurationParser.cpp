@@ -4,9 +4,9 @@
 #include <numeric>
 #include <unordered_set>
 
-#include "runtime-commons.h"
 #include "DeviceConfigurationParser.h"
 #include "common/common.hpp"
+#include "runtime-commons.h"
 
 template <typename T>
 T parseNumber(const std::string& value);
@@ -48,9 +48,9 @@ void DeviceConfigurationParser::load(const std::string& configurationFilePath) {
             continue;
         }
 
-        const auto [parameterName, parameterValue] = splitTwo(line, '=');
-        const auto parsedParameter =
-            parseParameter(trim(parameterName), trim(parameterValue));
+        const auto [parameterName, parameterValue] = utils::splitTwo(line, '=');
+        const auto parsedParameter = parseParameter(
+            utils::trim(parameterName), utils::trim(parameterValue));
 
         parameters.emplace(parsedParameter.name, parsedParameter.value);
     }
@@ -129,7 +129,7 @@ DeviceConfigurationParser::getParameter(cl_device_info parameter) const {
 #define IGNORE_PARAMETER(param)    \
     if (parameterName == #param) { \
         clParameter = param;       \
-        result = nullptr;        \
+        result = nullptr;          \
     }
 
 DeviceConfigurationParser::ParsedParameter
@@ -144,8 +144,9 @@ DeviceConfigurationParser::parseParameter(const std::string& parameterName,
 
     PARSE_PARAMETER(CL_DEVICE_TYPE, cl_device_type, parseDeviceType)
     PARSE_STRING_PARAMETER(CL_DEVICE_NAME)
-    PARSE_NUMBER_PARAMETER(CL_DEVICE_VENDOR_ID,
-                           cl_uint)  // TODO: parse hex correctly
+    PARSE_NUMBER_PARAMETER(
+        CL_DEVICE_VENDOR_ID,
+        cl_uint)  // TODO(parseParameter): parse hex correctly
     PARSE_STRING_PARAMETER(CL_DEVICE_VENDOR)
     PARSE_STRING_PARAMETER(CL_DRIVER_VERSION)
     PARSE_STRING_PARAMETER(CL_DEVICE_PROFILE)
@@ -155,8 +156,9 @@ DeviceConfigurationParser::parseParameter(const std::string& parameterName,
     PARSE_NUMBER_PARAMETER(CL_DEVICE_MAX_COMPUTE_UNITS, cl_uint)
     PARSE_NUMBER_PARAMETER(CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS, cl_uint)
     PARSE_PARAMETER_WITH_BODY(CL_DEVICE_MAX_WORK_ITEM_SIZES, [&]() {
-        // TODO: get actual CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS value
-        // TODO: CL_DEVICE_MAX_WORK_ITEM_SIZES not working
+        // TODO(parseParameter): get actual CL_DEVICE_MAX_WORK_ITEM_DIMENSIONS
+        //   value
+        // TODO(parseParameter): CL_DEVICE_MAX_WORK_ITEM_SIZES not working
         const int maxWorkItemDimensions = 3;
         resultSize = maxWorkItemDimensions * sizeof(size_t);
         result = &parseArray(parameterValue, parseNumber<size_t>)[0];
@@ -246,8 +248,6 @@ DeviceConfigurationParser::parseParameter(const std::string& parameterName,
         clParameter, DeviceConfigurationParameterValue(result, resultSize));
 }
 
-// TODO: ignore PARENT_DEVICE_ID, cl_platform_id
-
 template <typename T>
 T parseNumber(const std::string& value) {
     try {
@@ -260,11 +260,11 @@ T parseNumber(const std::string& value) {
 
 cl_bitfield parseBitfield(const std::string& value,
                           cl_bitfield parseFunction(const std::string& value)) {
-    // TODO: parse 0xNN?
-    const auto splitBitfield = split(value, '|');
+    // TODO(parseBitfield): parse 0xNN?
+    const auto splitBitfield = utils::split(value, '|');
 
     const auto accumulator = [&](cl_bitfield acc, const auto& value) {
-        return acc | parseFunction(trim(value));
+        return acc | parseFunction(utils::trim(value));
     };
 
     return std::accumulate(splitBitfield.begin(), splitBitfield.end(), 0,
@@ -274,12 +274,12 @@ cl_bitfield parseBitfield(const std::string& value,
 template <typename T>
 std::vector<T> parseArray(const std::string& value,
                           T parseFunction(const std::string&)) {
-    const auto splitValue = split(value, ',');
+    const auto splitValue = utils::split(value, ',');
 
     std::vector<T> result;
     std::transform(splitValue.begin(), splitValue.end(),
                    std::back_inserter(result), [&](auto& value) {
-                       return parseFunction(trim(value));
+                       return parseFunction(utils::trim(value));
                    });
 
     return result;
@@ -375,7 +375,7 @@ cl_device_mem_cache_type parseDeviceMemCacheType(const std::string& value) {
 
 cl_device_partition_property parseDevicePartitionProperty(
     const std::string& value) {
-    // TODO: parse array
+    // TODO(parseDevicePartitionProperty): parse array
 
     if (value == "CL_DEVICE_PARTITION_EQUALLY") {
         return CL_DEVICE_PARTITION_EQUALLY;

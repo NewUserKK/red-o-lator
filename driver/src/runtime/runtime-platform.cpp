@@ -31,16 +31,17 @@ CL_API_ENTRY cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries,
         return CL_INVALID_VALUE;
     }
 
+    if (!kPlatform) {
+        kPlatform = new CLPlatformId(kDispatchTable);
+        kPlatform->version = "OpenCL 1.2 red-o-lator";
+        kPlatform->name = "red-o-lator";
+        kPlatform->vendor = "sudo-team-company";
+        kPlatform->extensions = "cl_khr_icd";
+        kPlatform->suffix = "red-o-lator";
+        kPlatform->profile = "FULL_PROFILE";
+    }
+
     if (platforms) {
-        const auto platform = new CLPlatformId();
-        platform->dispatchTable = kDispatchTable;
-        platform->version = "OpenCL 1.2 red-o-lator";
-        platform->name = "red-o-lator";
-        platform->vendor = "sudo-team-company";
-        platform->extensions = "cl_khr_icd";
-        platform->suffix = "red-o-lator";
-        platform->profile = "FULL_PROFILE";
-        kPlatform = platform;
         platforms[0] = kPlatform;
     }
 
@@ -57,6 +58,10 @@ clGetPlatformInfo(cl_platform_id platform,
                   size_t param_value_size,
                   void* param_value,
                   size_t* param_value_size_ret) {
+    if (platform != kPlatform) {
+        return CL_INVALID_PLATFORM;
+    }
+
     std::string returnString;
 
     switch (param_name) {

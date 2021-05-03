@@ -5,6 +5,7 @@
 #include <locale>
 #include <vector>
 
+namespace utils {
 static std::vector<std::string> split(const std::string& line,
                                       const char separator) {
     if (line.empty()) {
@@ -76,3 +77,8 @@ static inline std::string trim(std::string s) {
     return s;
 }
 
+template <typename T>
+static std::optional<T*> optionalOf(T* value) {
+    return value ? std::make_optional(value) : std::nullopt;
+}
+}  // namespace utils
