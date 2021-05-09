@@ -2,6 +2,8 @@
 // Created by Diana Kudaiberdieva
 //
 
+#include <stdexcept>
+
 #include "register.h"
 
 RegisterTypeInfo get_register_type_info(RegisterType registerType) {

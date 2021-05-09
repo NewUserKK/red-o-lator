@@ -2,6 +2,8 @@
 // Created by Diana Kudaiberdieva
 //
 
+#include <stdexcept>
+
 #include "instruction.h"
 
 InstructionInfo get_instruction_info(InstructionKey instruction) {
