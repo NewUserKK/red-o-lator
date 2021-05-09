@@ -3,6 +3,10 @@
 #include <algorithm>
 #include <cctype>
 #include <locale>
+<<<<<<< HEAD
+=======
+#include <optional>
+>>>>>>> driver/04-runtime-context
 #include <vector>
 
 namespace utils {
@@ -42,13 +46,13 @@ static std::pair<std::string, std::string> splitTwo(const std::string& line,
     return std::make_pair(splitLine[0], splitLine[1]);
 }
 
-static inline void ltrim_inplace(std::string& s) {
+static inline void ltrimInplace(std::string& s) {
     s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
                 return !std::isspace(ch);
             }));
 }
 
-static inline void rtrim_inplace(std::string& s) {
+static inline void rtrimInplace(std::string& s) {
     s.erase(std::find_if(s.rbegin(), s.rend(),
                          [](unsigned char ch) {
                              return !std::isspace(ch);
@@ -57,24 +61,36 @@ static inline void rtrim_inplace(std::string& s) {
             s.end());
 }
 
-static inline void trim_inplace(std::string& s) {
-    ltrim_inplace(s);
-    rtrim_inplace(s);
+static inline void trimInplace(std::string& s) {
+    ltrimInplace(s);
+    rtrimInplace(s);
 }
 
 static inline std::string ltrim(std::string s) {
-    ltrim_inplace(s);
+    ltrimInplace(s);
     return s;
 }
 
 static inline std::string rtrim(std::string s) {
-    rtrim_inplace(s);
+    rtrimInplace(s);
     return s;
 }
 
 static inline std::string trim(std::string s) {
-    trim_inplace(s);
+    trimInplace(s);
     return s;
+}
+
+template <typename K, typename V>
+static inline void insertOrUpdate(std::unordered_map<K, V>& map,
+                                  const K& key,
+                                  const V& value) {
+    auto existing = map.find(key);
+    if (existing != map.end()) {
+        existing->second = value;
+    } else {
+        map.emplace(key, value);
+    }
 }
 
 template <typename T>

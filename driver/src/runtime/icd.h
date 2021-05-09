@@ -9,6 +9,7 @@
 #include "rename-api.h"
 
 #include <opencl.h>
+#include <string>
 #include <optional>
 
 #include "IcdDispatchTable.h"
@@ -24,7 +25,8 @@ struct CLPlatformId {
 
     IcdDispatchTable* const dispatchTable;
     const char* profile = "";
-    const char* version = "";
+    const char* openClVersion = "";
+    const char* driverVersion = "";
     const char* name = "";
     const char* vendor = "";
     const char* extensions = "";
@@ -45,7 +47,7 @@ struct CLContext {
     IcdDispatchTable* const dispatchTable;
     std::optional<CLContextCallback> callback = std::nullopt;
     void* callbackUserData = nullptr;
-    uint referenceCount = 0;
+    unsigned int referenceCount = 0;
 };
 
 struct CLCommandQueue {
