@@ -3,10 +3,7 @@
 #include <algorithm>
 #include <cctype>
 #include <locale>
-<<<<<<< HEAD
-=======
 #include <optional>
->>>>>>> driver/04-runtime-context
 #include <vector>
 
 namespace utils {
