@@ -5,7 +5,7 @@ add_executable(emulator
     instr/operand.cpp
     reg/register.cpp
     instr/instruction.cpp
-)
+    main.cpp)
 
 add_executable(emulator_test
         test/util/util_test.cpp
