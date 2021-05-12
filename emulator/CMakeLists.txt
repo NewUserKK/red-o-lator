@@ -16,5 +16,4 @@ add_executable(emulator_test
         util/util.cpp
 )
 
-target_link_libraries(emulator OpenCL::OpenCL)
-#target_link_libraries(emulator driver)
+target_link_libraries(emulator PRIVATE OpenCL::OpenCL red-o-lator-common)
