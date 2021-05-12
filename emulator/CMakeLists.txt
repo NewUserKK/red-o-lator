@@ -5,4 +5,4 @@ add_executable(emulator
         main/KernelLoader.h
         main/main.cpp)
 
-target_link_libraries(emulator OpenCL::OpenCL)
+target_link_libraries(emulator PRIVATE OpenCL::OpenCL red-o-lator-common)
