@@ -1,5 +1,10 @@
 #include <iostream>
+
+#include <CLRX/amdasm/Disassembler.h>
+#include <sstream>
+
 #include "icd.h"
+#include "runtime-commons.h"
 
 CL_API_ENTRY cl_program CL_API_CALL
 clCreateProgramWithSource(cl_context context,
@@ -20,9 +25,31 @@ clCreateProgramWithBinary(cl_context context,
                           const unsigned char** binaries,
                           cl_int* binary_status,
                           cl_int* errcode_ret) {
-    std::cerr << "Unimplemented OpenCL API call: clCreateProgramWithBinary"
-              << std::endl;
-    return nullptr;
+    if (!device_list || !num_devices) {
+        SET_ERROR_AND_RETURN(CL_INVALID_VALUE, "device_list is null or num_devices == 0.")
+    }
+
+    if (!lengths || !binaries) {
+        SET_ERROR_AND_RETURN(CL_INVALID_VALUE, "Source lengths or binaries is null.")
+    }
+
+    const auto program = new CLProgram(kDispatchTable);
+
+    const auto amdInput = CLRX::AmdCL2MainGPUBinary64(
+        lengths[0], const_cast<unsigned char*>(binaries[0]));
+    std::ostringstream disasmOss;
+    std::string resultStr;
+    CLRX::Flags disasmFlags =
+        CLRX::DISASM_ALL & ~(CLRX::DISASM_CODEPOS | CLRX::DISASM_HEXCODE);
+
+    CLRX::Disassembler disasm(amdInput, disasmOss, disasmFlags);
+    disasm.disassemble();
+    resultStr = disasmOss.str();
+//    std::cout << resultStr << std::endl;
+
+    SET_SUCCESS()
+
+    return program;
 }
 
 CL_API_ENTRY cl_program CL_API_CALL
@@ -38,13 +65,18 @@ clCreateProgramWithBuiltInKernels(cl_context context,
 }
 
 CL_API_ENTRY cl_int CL_API_CALL clRetainProgram(cl_program program) {
-    std::cerr << "Unimplemented OpenCL API call: clRetainProgram" << std::endl;
-    return CL_INVALID_PLATFORM;
+    program->referenceCount++;
+    return CL_SUCCESS;
 }
 
 CL_API_ENTRY cl_int CL_API_CALL clReleaseProgram(cl_program program) {
-    std::cerr << "Unimplemented OpenCL API call: clReleaseProgram" << std::endl;
-    return CL_INVALID_PLATFORM;
+    program->referenceCount--;
+
+    if (program->referenceCount == 0) {
+        delete program;
+    }
+
+    return CL_SUCCESS;
 }
 
 CL_API_ENTRY cl_int CL_API_CALL clBuildProgram(cl_program program,

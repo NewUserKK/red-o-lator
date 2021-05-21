@@ -25,3 +25,4 @@ endif ()
 
 target_link_libraries(debugger ${wxWidgets_LIBRARIES})
 target_include_directories(debugger PRIVATE ${wxWidgets_INCLUDE_DIRS})
+target_link_libraries(debugger red-o-lator-common)

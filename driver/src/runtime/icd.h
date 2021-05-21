@@ -1,53 +1,131 @@
-#ifndef RED_O_LATOR_ICD_H
-#define RED_O_LATOR_ICD_H
+#pragma once
 
-#include "IcdDispatchTable.h"
+#ifndef CL_TARGET_OPENCL_VERSION
+#define CL_TARGET_OPENCL_VERSION 120
+#endif
+
+/** It is important that rename-api.h is included before <opencl.h> to rename
+ *  OpenCL API entries to avoid clash with icd functions.
+ *
+ *  For that reason, this file should be imported instead of <opencl.h> in
+ *  outer files.
+ */
 #include "rename-api.h"
 
-#include <opencl.h>
+#include <CL/opencl.h>
+#include <cstddef>
+#include <optional>
+#include <string>
+#include <utility>
+#include <vector>
+
+#include "IcdDispatchTable.h"
+
+using CLContextCallback = void(CL_CALLBACK*)(const char* errinfo,
+                                             const void* private_info,
+                                             size_t cb,
+                                             void* user_data);
 
 struct CLPlatformId {
-    IcdDispatchTable* dispatchTable;
-    const char* profile;
-    const char* version;
-    const char* name;
-    const char* vendor;
-    const char* extensions;
-    const char* suffix;
+    explicit CLPlatformId(IcdDispatchTable* dispatchTable)
+        : dispatchTable(dispatchTable) {}
+
+    IcdDispatchTable* const dispatchTable;
+    std::string profile;
+    std::string openClVersion;
+    std::string driverVersion;
+    std::string name;
+    std::string vendor;
+    std::string extensions;
+    std::string suffix;
 };
 
 struct CLDeviceId {
-    IcdDispatchTable* dispatchTable;
+    CLDeviceId(IcdDispatchTable* const dispatchTable,
+               size_t globalMemorySize,
+               size_t constantMemorySize,
+               size_t localMemorySize)
+        : dispatchTable(dispatchTable),
+          globalMemorySize(globalMemorySize),
+          constantMemorySize(constantMemorySize),
+          localMemorySize(localMemorySize) {}
+
+    IcdDispatchTable* const dispatchTable;
+    size_t globalMemorySize = 0;
+    size_t constantMemorySize = 0;
+    size_t localMemorySize = 0;
+
+    size_t usedGlobalMemory = 0;
+    size_t usedLocalMemory = 0;
 };
 
 struct CLContext {
-    IcdDispatchTable* dispatchTable;
+    CLContext(IcdDispatchTable* dispatchTable, CLDeviceId* device)
+        : dispatchTable(dispatchTable), device(device) {}
+
+    IcdDispatchTable* const dispatchTable;
+    CLDeviceId* device;
+
+    std::optional<CLContextCallback> callback = std::nullopt;
+    void* callbackUserData = nullptr;
+    unsigned int referenceCount = 1;
 };
 
+struct Command {};
+
 struct CLCommandQueue {
-    IcdDispatchTable* dispatchTable;
+    explicit CLCommandQueue(IcdDispatchTable* dispatchTable)
+        : dispatchTable(dispatchTable) {}
+
+    IcdDispatchTable* const dispatchTable;
+    std::vector<Command> commands = std::vector<Command>();
+    unsigned int referenceCount = 1;
 };
 
 struct CLMem {
-    IcdDispatchTable* dispatchTable;
+    explicit CLMem(IcdDispatchTable* dispatchTable, CLContext* context)
+        : dispatchTable(dispatchTable), context(context) {}
+
+    IcdDispatchTable* const dispatchTable;
+    CLContext const * context;
+
+    std::byte* address = nullptr;
+    size_t size = 0;
+
+    bool kernelCanRead = false;
+    bool kernelCanWrite = false;
+
+    bool hostCanRead = false;
+    bool hostCanWrite = false;
+
+    unsigned int referenceCount = 1;
 };
 
 struct CLProgram {
-    IcdDispatchTable* dispatchTable;
+    explicit CLProgram(IcdDispatchTable* dispatchTable)
+        : dispatchTable(dispatchTable) {}
+
+    IcdDispatchTable* const dispatchTable;
+    unsigned int referenceCount = 1;
 };
 
 struct CLKernel {
-    IcdDispatchTable* dispatchTable;
+    explicit CLKernel(IcdDispatchTable* dispatchTable)
+        : dispatchTable(dispatchTable) {}
+
+    IcdDispatchTable* const dispatchTable;
 };
 
 struct CLEvent {
-    IcdDispatchTable* dispatchTable;
+    explicit CLEvent(IcdDispatchTable* dispatchTable)
+        : dispatchTable(dispatchTable) {}
+
+    IcdDispatchTable* const dispatchTable;
 };
 
 struct CLSampler {
-    IcdDispatchTable* dispatchTable;
+    explicit CLSampler(IcdDispatchTable* dispatchTable)
+        : dispatchTable(dispatchTable) {}
+
+    IcdDispatchTable* const dispatchTable;
 };
-
-extern IcdDispatchTable* mDispatchTable;
-
-#endif  // RED_O_LATOR_ICD_H

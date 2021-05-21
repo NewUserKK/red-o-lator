@@ -1,7 +1,19 @@
-set (EMULATOR_SOURCES
-  main.cpp
+find_package(OpenCL REQUIRED)
+
+add_executable(emulator
+    util/util.cpp
+    flow/wavefront.cpp
+    alu/alu_sop1.cpp
+    instr/operand.cpp
+    reg/register.cpp
+    instr/instruction.cpp
+        main/KernelLoader.cpp
+        main/KernelLoader.h
+        main/main.cpp)
+
+add_executable(emulator_test
+        test/util/util_test.cpp
+        util/util.cpp
 )
 
-add_executable(emulator ${EMULATOR_SOURCES})
-
-target_link_libraries(emulator driver)
+target_link_libraries(emulator PRIVATE OpenCL::OpenCL red-o-lator-common)

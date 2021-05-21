@@ -1,8 +1,8 @@
 #include <cstring>
-#include <iostream>
-#include "icd.h"
 
-CL_API_ENTRY CL_API_PREFIX__VERSION_1_1_DEPRECATED void* CL_API_CALL
+#include "runtime-commons.h"
+
+CL_API_ENTRY void* CL_API_CALL
 clGetExtensionFunctionAddress(const char* func_name) {
     if (strcmp(func_name, "clIcdGetPlatformIDsKHR") == 0) {
         return (void*) clIcdGetPlatformIDsKHR;
@@ -22,23 +22,28 @@ CL_API_ENTRY cl_int CL_API_CALL clGetPlatformIDs(cl_uint num_entries,
                                                  cl_platform_id* platforms,
                                                  cl_uint* num_platforms) {
     if (!platforms && !num_platforms) {
-        return CL_INVALID_VALUE;
+        RETURN_ERROR(CL_INVALID_VALUE,
+                     "platforms is null and num_platforms == 0.")
     }
 
     if (platforms && num_entries == 0) {
-        return CL_INVALID_VALUE;
+        RETURN_ERROR(CL_INVALID_VALUE,
+                     "platforms is not null and num_entries == 0.")
+    }
+
+    if (!kPlatform) {
+        kPlatform = new CLPlatformId(kDispatchTable);
+        kPlatform->openClVersion = "OpenCL 1.2";
+        kPlatform->driverVersion = "0.1";
+        kPlatform->name = "AMD Accelerated Parallel Processing";
+        kPlatform->vendor = "sudo-team-company";
+        kPlatform->extensions = "cl_khr_icd";
+        kPlatform->suffix = "red-o-lator";
+        kPlatform->profile = "FULL_PROFILE";
     }
 
     if (platforms) {
-        const auto platform = new CLPlatformId();
-        platform->dispatchTable = mDispatchTable;
-        platform->version = "OpenCL 1.2 red-o-lator";
-        platform->name = "red-o-lator";
-        platform->vendor = "sudo-team-company";
-        platform->extensions = "cl_khr_icd";
-        platform->suffix = "red-o-lator";
-        platform->profile = "FULL_PROFILE";
-        platforms[0] = platform;
+        platforms[0] = kPlatform;
     }
 
     if (num_platforms) {
@@ -57,33 +62,44 @@ clGetPlatformInfo(cl_platform_id platform,
     std::string returnString;
 
     switch (param_name) {
-        case CL_PLATFORM_PROFILE:
+        case CL_PLATFORM_PROFILE: {
             returnString = platform->profile;
             break;
-        case CL_PLATFORM_VERSION:
-            returnString = platform->version;
+        }
+
+        case CL_PLATFORM_VERSION: {
+            returnString = platform->openClVersion + " " + platform->name;
             break;
-        case CL_PLATFORM_NAME:
+        }
+
+        case CL_PLATFORM_NAME: {
             returnString = platform->name;
             break;
-        case CL_PLATFORM_VENDOR:
+        }
+
+        case CL_PLATFORM_VENDOR: {
             returnString = platform->vendor;
             break;
-        case CL_PLATFORM_EXTENSIONS:
+        }
+
+        case CL_PLATFORM_EXTENSIONS: {
             returnString = platform->extensions;
             break;
-        case CL_PLATFORM_ICD_SUFFIX_KHR:
+        }
+
+        case CL_PLATFORM_ICD_SUFFIX_KHR: {
             returnString = platform->suffix;
             break;
-        default:
-            return CL_INVALID_VALUE;
+        }
+
+        default: return CL_INVALID_VALUE;
     }
 
-    const auto cReturnString = returnString.c_str();
+    const char* cReturnString = returnString.c_str();
     const auto returnStringSize = strlen(cReturnString) + 1;
 
     if (param_value_size && param_value_size < returnStringSize) {
-        return CL_INVALID_VALUE;
+        RETURN_ERROR(CL_INVALID_VALUE, "Not enough size to fit parameter.")
     }
 
     if (param_value) {
