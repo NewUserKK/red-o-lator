@@ -1,6 +1,5 @@
 #pragma once
 
-#include <common/logger/Logger.h>
 #include <common/utils/time-utils.hpp>
 #include <cstring>
 #include <functional>
@@ -8,13 +7,13 @@
 #include <optional>
 #include <variant>
 
+#include "common/logger.h"
 #include "CLObjectInfoParameterValue.hpp"
 #include "device/DeviceConfigurationParser.h"
 #include "icd/CLPlatformId.hpp"
 #include "icd/CLCommandQueue.h"
 #include "icd/IcdDispatchTable.h"
 
-extern Logger kLogger;
 extern IcdDispatchTable* kDispatchTable;
 extern DeviceConfigurationParser kDeviceConfigurationParser;
 extern utils::Clock* kClock;
@@ -57,6 +56,8 @@ extern void enqueueCommand(cl_command_queue queue,
                       const cl_event* waitList,
                       cl_event* eventOut,
                       const std::function<Command*()>& commandGetter);
+
+extern void registerCall(const std::string& funcName);
 
 namespace utils {
 extern bool hasMutuallyExclusiveFlags(cl_bitfield flags,

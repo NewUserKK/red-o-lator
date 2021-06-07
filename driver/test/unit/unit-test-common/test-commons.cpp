@@ -3,7 +3,7 @@
 
 #include "test-commons.h"
 
-#include <runtime/runtime-commons.h>
+#include <runtime/common/runtime-commons.h>
 
 namespace test {
 cl_platform_id getPlatform() {
